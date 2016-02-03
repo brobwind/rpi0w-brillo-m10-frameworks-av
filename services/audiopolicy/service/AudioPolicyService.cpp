@@ -423,7 +423,7 @@ void AudioPolicyService::AudioCommandThread::onFirstRef()
 
 bool AudioPolicyService::AudioCommandThread::threadLoop()
 {
-    nsecs_t waitTime = INT64_MAX;
+    nsecs_t waitTime = -1;
 
     mLock.lock();
     while (!exitPending())
@@ -576,7 +576,7 @@ bool AudioPolicyService::AudioCommandThread::threadLoop()
                         command->mCond.signal();
                     }
                 }
-                waitTime = INT64_MAX;
+                waitTime = -1;
                 // release mLock before releasing strong reference on the service as
                 // AudioPolicyService destructor calls AudioCommandThread::exit() which
                 // acquires mLock.
@@ -598,7 +598,11 @@ bool AudioPolicyService::AudioCommandThread::threadLoop()
         // has a finite delay. So unless we are exiting it is safe to wait.
         if (!exitPending()) {
             ALOGV("AudioCommandThread() going to sleep");
-            mWaitWorkCV.waitRelative(mLock, waitTime);
+            if (waitTime == -1) {
+                mWaitWorkCV.wait(mLock);
+            } else {
+                mWaitWorkCV.waitRelative(mLock, waitTime);
+            }
         }
     }
     // release delayed commands wake lock before quitting
